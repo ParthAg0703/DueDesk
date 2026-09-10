@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-const API_URL = 'http://127.0.0.1:8000';
+// Dynamically uses VITE_API_URL set in Vercel, falling back to your live Render backend
+const API_URL = import.meta.env.VITE_API_URL || 'https://duedesk-o3t3.onrender.com';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
