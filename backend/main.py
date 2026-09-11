@@ -158,3 +158,38 @@ def get_due_soon(
         )
         .all()
     )
+
+@app.put("/customers/{customer_id}", response_model=schemas.CustomerOut)
+def update_customer(
+    customer_id: int,
+    customer_update: schemas.CustomerCreate,
+    db: Session = Depends(get_db),
+    current_business: models.Business = Depends(get_current_business),
+):
+    customer = (
+        db.query(models.Customer)
+        .filter(models.Customer.id == customer_id, models.Customer.business_id == current_business.id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Update basic customer fields
+    customer.name = customer_update.name
+    customer.phone = customer_update.phone
+    customer.notes = customer_update.notes
+
+    # Update the first renewal item (matches your current one-item-per-customer usage)
+    item = customer.renewal_items[0] if customer.renewal_items else None
+    if item:
+        item.item_type = customer_update.renewal_item.item_type
+        item.reference_number = customer_update.renewal_item.reference_number
+        item.start_date = customer_update.renewal_item.start_date
+        item.cycle_months = customer_update.renewal_item.cycle_months
+        item.expiry_date = customer_update.renewal_item.start_date + relativedelta(
+            months=customer_update.renewal_item.cycle_months
+        )
+
+    db.commit()
+    db.refresh(customer)
+    return customer
