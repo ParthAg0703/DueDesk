@@ -30,6 +30,16 @@ function App() {
   const [reminderMessage, setReminderMessage] = useState('');
   const [reminderCustomer, setReminderCustomer] = useState(null);
 
+  // ---- Update Customer state ----
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editItemType, setEditItemType] = useState('');
+  const [editReferenceNumber, setEditReferenceNumber] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editCycleMonths, setEditCycleMonths] = useState(6);
+  
   const loadCustomers = (authToken) => {
     fetch(`${API_URL}/customers`, {
       headers: { Authorization: `Bearer ${authToken}` },
@@ -53,6 +63,58 @@ function App() {
       loadCustomers(token);
     }
   }, [token]);
+
+  const handleOpenEditModal = (customer) => {
+  const item = customer.renewal_items[0];
+  setEditingCustomer(customer);
+  setEditName(customer.name);
+  setEditPhone(customer.phone);
+  setEditItemType(item?.item_type || '');
+  setEditReferenceNumber(item?.reference_number || '');
+  setEditStartDate(item?.start_date || '');
+  setEditCycleMonths(item?.cycle_months || 6);
+  setEditModalOpen(true);
+};
+
+const handleSaveEdit = (e) => {
+  e.preventDefault();
+
+  const updatedCustomer = {
+    name: editName,
+    phone: editPhone,
+    renewal_item: {
+      item_type: editItemType,
+      reference_number: editReferenceNumber,
+      start_date: editStartDate,
+      cycle_months: parseInt(editCycleMonths),
+    },
+  };
+
+  fetch(`${API_URL}/customers/${editingCustomer.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(updatedCustomer),
+  })
+    .then((res) => res.json())
+    .then(() => {
+      setEditModalOpen(false);
+      setEditingCustomer(null);
+      if (dueSoonOnly) {
+        loadDueSoon(token, dueSoonDays);
+      } else {
+        loadCustomers(token);
+      }
+    })
+    .catch((err) => console.error('Failed to update customer:', err));
+};
+
+const handleCancelEdit = () => {
+  setEditModalOpen(false);
+  setEditingCustomer(null);
+};
 
   const handleSignup = (e) => {
     e.preventDefault();
@@ -360,6 +422,9 @@ function App() {
                     <button onClick={() => handleOpenReminderModal(customer)}>Send Reminder</button>
                   </td>
                   <td>
+                    <button className="btn-secondary" onClick={() => handleOpenEditModal(customer)}>Edit</button>
+                  </td>
+                  <td>
                     <button className="btn-danger" onClick={() => handleDelete(customer.id)}>Delete</button>
                   </td>
                 </tr>
@@ -384,6 +449,42 @@ function App() {
           </div>
         </div>
       )}
+      {editModalOpen && (
+  <div className="modal-overlay">
+    <div className="modal-box">
+      <h3>Edit {editingCustomer?.name}</h3>
+      <form onSubmit={handleSaveEdit}>
+        <input type="text" placeholder="Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+        <input type="text" placeholder="Phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} required />
+        <input
+          type="text"
+          placeholder="Item Type"
+          value={editItemType}
+          onChange={(e) => setEditItemType(e.target.value)}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Reference No."
+          value={editReferenceNumber}
+          onChange={(e) => setEditReferenceNumber(e.target.value)}
+        />
+        <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} required />
+        <input
+          type="number"
+          placeholder="Cycle (months)"
+          value={editCycleMonths}
+          onChange={(e) => setEditCycleMonths(e.target.value)}
+          required
+        />
+        <div className="modal-actions">
+          <button type="submit">Save Changes</button>
+          <button type="button" className="btn-secondary" onClick={handleCancelEdit}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
     </div>
   );
 }
